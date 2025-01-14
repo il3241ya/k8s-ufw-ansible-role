@@ -1,2 +1,38 @@
 ---
-# tasks file for k8s-ufw
+- name: Configure UFW for Kubernetes Cluster
+  block:
+    - name: Ensure UFW is installed
+      ansible.builtin.package:
+        name: ufw
+        state: present
+
+    - name: Enable UFW and set default rules
+      community.general.ufw:
+        state: enabled
+      register: ufw_enable
+      notify:
+        - Set default deny for incoming traffic
+        - Set default allow for outgoing traffic
+        - Allow SSH
+        - Allow Kubernetes master ports
+        - Allow Kubernetes worker ports
+        - Allow internal Kubernetes cluster communication
+        - Enable UFW and set default rules
+        - Reload UFW to apply rules
+        - Logging
+
+    - name: Run UFW status command
+      ansible.builtin.command: ufw status
+      register: ufw_status_output
+      become: true
+
+    - name: Check ufw
+      ansible.builtin.debug:
+        msg: "{{ ufw_status_output.stdout }}"
+
+  rescue:
+    - name: Log failure with details
+      ansible.builtin.fail:
+        msg: >
+          "UFW setup failed on task {{ ansible_failed_task.name }}.
+          Error message: {{ ansible_failed_result.msg }}"

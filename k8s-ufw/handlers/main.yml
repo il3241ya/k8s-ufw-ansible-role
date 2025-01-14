@@ -1,2 +1,61 @@
 ---
-# handlers file for k8s-ufw
+- name: Set default deny for incoming traffic
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Set default allow for outgoing traffic
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Allow Kubernetes master ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - 6443  # Kubernetes API server
+    - 2379  # etcd server client API
+    - 2380  # etcd server-to-server
+    - 10250 # kubelet API server
+    - 10251 # kube-scheduler
+    - 10252 # kube-controller-manager
+  when: inventory_hostname in groups['k8s-master']
+
+- name: Allow Kubernetes worker ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - 10250       # Kubelet API
+    - 30000:32767 # NodePort Services
+  when: inventory_hostname in groups['k8s-worker']
+
+- name: Allow internal Kubernetes cluster communication
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - 443   # HTTPS для взаимодействия узлов
+    - 53    # DNS
+
+  # - 6783  # Weave Net
+  # - 8472  # Flannel UDP
+  # - 179   # Calico BGP
+
+- name: Reload UFW to apply rules
+  community.general.ufw:
+    state: reloaded
+
+- name: Logging
+  community.general.ufw:
+    logging: full
